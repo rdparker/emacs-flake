@@ -30,70 +30,80 @@
       inherit (flake-utils.lib) eachDefaultSystem eachSystem;
       inherit (nixpkgs.lib) mkIf platforms;
       isDarwin = system: (builtins.elem system platforms.darwin);
-    in eachDefaultSystem (localSystem: rec {
-      pkgs = import nixpkgs {
-        inherit localSystem;
-        overlays = [
-          emacs-overlay.overlays.emacs
-          (final: prev: {
-            emacs-vterm = prev.stdenv.mkDerivation rec {
-              pname = "emacs-vterm";
-              version = "master";
+    in eachDefaultSystem (localSystem:
+      let
+        ifDarwinElse = darwin: other:
+          if (isDarwin localSystem) then darwin else other;
+      in rec {
+        pkgs = import nixpkgs {
+          inherit localSystem;
+          overlays = [
+            emacs-overlay.overlays.emacs
+            (final: prev:
+              let
+                overrideEmacs = pkg:
+                  (pkg.override {
+                    withGTK3 = true;
+                    withXwidgets = true;
+                  }).overrideAttrs (o: rec {
+                    src = emacs-src;
 
-              src = emacs-vterm-src;
+                    buildInputs = o.buildInputs ++ [
+                      (ifDarwinElse prev.darwin.apple_sdk.frameworks.WebKit
+                        prev.webkitgtk)
+                    ];
 
-              nativeBuildInputs = [ prev.cmake prev.libtool prev.glib.dev ];
+                    patches = o.patches ++ [
+                      "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
+                      "${emacs-patches-src}/patches/emacs-29/system-appearance.patch"
+                    ];
 
-              buildInputs = [ prev.glib.out prev.libvterm-neovim prev.ncurses ];
+                    postInstall = o.postInstall + ''
+                      cp ${final.emacs-vterm}/vterm.el $out/share/emacs/site-lisp/vterm.el
+                      cp ${final.emacs-vterm}/vterm-module.so $out/share/emacs/site-lisp/vterm-module.so
+                    '';
 
-              cmakeFlags = [ "-DUSE_SYSTEM_LIBVTERM=yes" ];
+                    CFLAGS = ifDarwinElse
+                      "-DMAC_OS_X_VERSION_MAX_ALLOWED=110203 -g -O2" "-g -O2";
+                  });
+              in rec {
+                emacs-vterm = prev.stdenv.mkDerivation rec {
+                  pname = "emacs-vterm";
+                  version = "master";
 
-              preConfigure = ''
-                echo "include_directories(\"${prev.glib.out}/lib/glib-2.0/include\")" >> CMakeLists.txt
-                echo "include_directories(\"${prev.glib.dev}/include/glib-2.0\")" >> CMakeLists.txt
-                echo "include_directories(\"${prev.ncurses.dev}/include\")" >> CMakeLists.txt
-                echo "include_directories(\"${prev.libvterm-neovim}/include\")" >> CMakeLists.txt
-              '';
+                  src = emacs-vterm-src;
 
-              installPhase = ''
-                mkdir -p $out
-                cp ../vterm-module.so $out
-                cp ../vterm.el $out
-              '';
-            };
+                  nativeBuildInputs = [ prev.cmake prev.libtool prev.glib.dev ];
 
-            emacs = (prev.emacsPgtk.override {
-              withGTK3 = true;
-              withXwidgets = true;
-            }).overrideAttrs (o: rec {
-              src = emacs-src;
+                  buildInputs =
+                    [ prev.glib.out prev.libvterm-neovim prev.ncurses ];
 
-              buildInputs = o.buildInputs ++ [
-                (if (isDarwin localSystem) then
-                  prev.darwin.apple_sdk.frameworks.WebKit
-                else
-                  prev.webkitgtk)
-              ];
+                  cmakeFlags = [ "-DUSE_SYSTEM_LIBVTERM=yes" ];
 
-              patches = o.patches ++ [
-                "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
-                "${emacs-patches-src}/patches/emacs-29/system-appearance.patch"
-              ];
+                  preConfigure = ''
+                    echo "include_directories(\"${prev.glib.out}/lib/glib-2.0/include\")" >> CMakeLists.txt
+                    echo "include_directories(\"${prev.glib.dev}/include/glib-2.0\")" >> CMakeLists.txt
+                    echo "include_directories(\"${prev.ncurses.dev}/include\")" >> CMakeLists.txt
+                    echo "include_directories(\"${prev.libvterm-neovim}/include\")" >> CMakeLists.txt
+                  '';
 
-              postInstall = o.postInstall + ''
-                cp ${final.emacs-vterm}/vterm.el $out/share/emacs/site-lisp/vterm.el
-                cp ${final.emacs-vterm}/vterm-module.so $out/share/emacs/site-lisp/vterm-module.so
-              '';
+                  installPhase = ''
+                    mkdir -p $out
+                    cp ../vterm-module.so $out
+                    cp ../vterm.el $out
+                  '';
+                };
 
-              CFLAGS = "-DMAC_OS_X_VERSION_MAX_ALLOWED=110203 -g -O2";
-            });
-          })
-        ];
-      };
+                emacsGit = overrideEmacs prev.emacsGit;
+                emacsPgtk = overrideEmacs prev.emacsPgtk;
+                emacs = ifDarwinElse emacsPgtk emacsGit;
+              })
+          ];
+        };
 
-      packages = rec {
-        emacs = pkgs.emacs;
-        default = emacs;
-      };
-    });
+        packages = rec {
+          inherit (pkgs) emacs emacsGit emacsPgtk;
+          default = emacs;
+        };
+      });
 }
