@@ -1,0 +1,87 @@
+#+TITLE: Emacs flake extras for Nixpkgs
+
+Like the [[https://github.com/nix-community][nix-community]] [[https://github.com/nix-community/emacs-overlay][emacs-overlay]], this [[https://nixos.wiki/wiki/Flakes][flake]] adds additional [[https://www.gnu.org/software/emacs/][GNU Emacs]] features and packages to [[https://github.com/NixOS/nixpkgs][nixpkgs]].
+
+* Content of the flake
+
+This flake uses and extends =emacs-overlay= while providing the ability to separately control the version of Emacs being used.
+
+** Extended =emacs-overlay= packages
+All of the =emacs-overlay= targets are provided and extended.  They all include [[https://github.com/akermu/emacs-libvterm][emacs-libvterm]] support and the graphic interface packages are built with [[https://www.gtk.org/][GTK3]] and [[https://www.gnu.org/software/emacs/manual/html_node/elisp/Xwidgets.html][embedded native widgets]] with [[https://www.gnu.org/software/emacs/manual/html_node/emacs/Embedded-WebKit-Widgets.html][WebKit]] enabled.
+
+** Pinned packages
+The flake also takes an ~emacs-src~ ~input~, which is used to provide the ~emacsStable~, ~emacsStablePgtk~, and ~emacsStable-nox~ targets.  These have all of the same benefits of the extended =emacs-overlay= packages, but allow for independent control of the Emacs version being built.
+
+** Platform-specific Defaults
+On Darwin ([[https://www.apple.com/macos][macOS]]) the default ~emacs~ package is ~emacsStablePgtk~ using the Pure GTK interfaces.  Other platforms default to ~emacsStable~ with a GTK3 X Windows interface.  The reason for this is that I frequently use X11 forwarding on non-Mac hosts and the Pure GTK version is not currently[fn:1] stable over X.  However, you are free to use any of the other Emacs package outputs on whichever systems you please.
+
+* Using the flake
+Simple add [[https://github.com/rdparker/emacs-flake][emacs-flake]] to your ~inputs~:
+
+#+begin_src nix
+  inputs = {
+    emacs.url = github:rdparker/emacs-flake;
+    ...
+  };
+#+end_src
+
+Once this is done the usage is the same as specified in the [[https://nixos.wiki/wiki/Emacs#Installation][Emacs Installation section]] on the [[https://nixos.wiki/wiki/Main_Page][NixOS Wiki]]
+
+** With Home-Manager
+#+begin_src nix :var filename=home.nix
+  {
+    programs.emacs = {
+      enable = true;
+      package = pkgs.emacs;  # replace with pkgs.emacsStablePgtk, or a
+                             # version provided by the flake if desired.
+      extraConfig = ''
+        (setq standard-indent 2)
+      '';
+    };
+  }
+#+end_src
+
+See the [[https://rycee.gitlab.io/home-manager/options.html#opt-programs.emacs.enable][Home-Manager manual]] for a full list of options.
+
+** Without Home-Manager
+Emacs can be installed in the same way as other packages:
+#+begin_src nix :var filename=configuration.nix
+  {
+    environment.systemPackages = with pkgs; [
+      emacs  # replace with emacsStablePgtk, or a version provided by
+             # the flake if desired.
+    ];
+  }
+#+end_src
+
+** Enabling the Emacs daemon
+Many Emacs users run [[https://www.emacswiki.org/emacs/EmacsAsDaemon][Emacs as a daemon]] and access Emacs via the =emacsclient= command. NixOS provides a =systemd= service to facilitate this, which you can enable by adding the following to your =configuration.nix=:
+#+begin_src nix :var filename=configuration.nix
+  {
+    services.emacs = {
+      enable = true;
+      package = pkgs.emacs; # replace with emacsStablePgtk, or a version
+                            # provided by the flake if desired.
+    };
+  }
+#+end_src
+
+** Window manager integration
+Out of the box, non-"Mac Port" versions of Emacs will not be picked up properly by window managers like [[https://github.com/koekeishiya/yabai][Yabai]] because [[https://github.com/koekeishiya/yabai/issues/86#issuecomment-507537023][Emacs does not set the correct macOS window role]]. This flake patches that.  However, even with the patch, Yabai may not correctly pick up Emacs if you invoke the =emacs= binary directly from a shell. For Emacs to work properly with window managers you must invoke it by running the macOS app that is generated when you install Emacs with nix. You can setup an alias to do this like so (replace =pkgs.emacs= with the package you are using):
+
+
+#+begin_src nix :var filename=home.nix
+  programs.zsh = {
+    enable = true;
+    shellAliases = {
+      emacs = "${pkgs.emacs}/Applications/Emacs.app/Contents/MacOS/Emacs";
+    };
+  };
+#+end_src
+
+*
+* Footnotes
+[fn:1] May 2, 2023.
+
+# LocalWords:  GTK WebKit emacsStable emacsStablePgtk fn
+# LocalWords:  libvterm macOS nixpkgs NixOS nox src url
