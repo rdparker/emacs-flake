@@ -60,7 +60,6 @@
 
                     patches = o.patches ++ [
                       "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
-                      "${emacs-patches-src}/patches/emacs-29/system-appearance.patch"
                     ];
 
                     postInstall = o.postInstall + ''
