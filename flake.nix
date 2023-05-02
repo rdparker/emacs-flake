@@ -41,17 +41,22 @@
             emacs-overlay.overlays.emacs
             (final: prev:
               let
-                overrideEmacs = pkg:
-                  (pkg.override {
+                overrideEmacs = { pkg, src ? pkg.src, nox ? false }:
+                  (pkg.override (if nox then
+                    { }
+                  else {
                     withGTK3 = true;
                     withXwidgets = true;
-                  }).overrideAttrs (o: rec {
-                    src = emacs-src;
+                  })).overrideAttrs (o: rec {
+                    inherit src;
 
-                    buildInputs = o.buildInputs ++ [
-                      (ifDarwinElse prev.darwin.apple_sdk.frameworks.WebKit
-                        prev.webkitgtk)
-                    ];
+                    buildInputs = if nox then
+                      o.buildInputs
+                    else
+                      (o.buildInputs ++ [
+                        (ifDarwinElse prev.darwin.apple_sdk.frameworks.WebKit
+                          prev.webkitgtk)
+                      ]);
 
                     patches = o.patches ++ [
                       "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
@@ -94,15 +99,46 @@
                   '';
                 };
 
-                emacsGit = overrideEmacs prev.emacsGit;
-                emacsPgtk = overrideEmacs prev.emacsPgtk;
-                emacs = ifDarwinElse emacsPgtk emacsGit;
+                emacsGit = overrideEmacs { pkg = prev.emacsGit; };
+                emacsPgtk = overrideEmacs { pkg = prev.emacsPgtk; };
+                emacsUnstable = overrideEmacs { pkg = prev.emacsUnstable; };
+                emacsUnstablePgtk =
+                  overrideEmacs { pkg = prev.emacsUnstablePgtk; };
+                emacsLsp = overrideEmacs { pkg = prev.emacsLsp; };
+                emacsGit-nox = overrideEmacs {
+                  pkg = prev.emacsGit-nox;
+                  nox = true;
+                };
+                emacsUnstable-nox = overrideEmacs {
+                  pkg = prev.emacsUnstable-nox;
+                  nox = true;
+                };
+
+                # The Stable packages are taken from the emacs-src input.
+                emacsStable = overrideEmacs {
+                  pkg = prev.emacsGit;
+                  src = emacs-src;
+                };
+                emacsStablePgtk = overrideEmacs {
+                  pkg = prev.emacsPgtk;
+                  src = emacs-src;
+                };
+                emacsStable-nox = overrideEmacs {
+                  pkg = prev.emacs-nox;
+                  src = emacs-src;
+                  nox = true;
+                };
+
+                emacs = ifDarwinElse emacsStablePgtk emacsStable;
               })
           ];
         };
 
         packages = rec {
-          inherit (pkgs) emacs emacsGit emacsPgtk;
+          inherit (pkgs)
+            emacs emacsGit emacsPgtk emacsStable emacsStablePgtk emacsUnstable
+            emacsUnstablePgtk emacsLsp emacsStable-nox emacsGit-nox
+            emacsUnstable-nox;
           default = emacs;
         };
       });
