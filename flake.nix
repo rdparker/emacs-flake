@@ -41,13 +41,13 @@
             emacs-overlay.overlays.emacs
             (final: prev:
               let
-                overrideEmacs = { pkg, src ? pkg.src, nox ? false }:
+                overrideEmacs =
+                  { pkg, options ? { }, src ? pkg.src, nox ? false }:
                   (pkg.override (if nox then
-                    { }
-                  else {
-                    withGTK3 = true;
-                    withXwidgets = true;
-                  })).overrideAttrs (o: rec {
+                    options
+                  else
+                    { withXwidgets = true; } // options)).overrideAttrs
+                  (o: rec {
                     inherit src;
 
                     buildInputs = if nox then
@@ -70,6 +70,21 @@
                     CFLAGS = ifDarwinElse
                       "-DMAC_OS_X_VERSION_MAX_ALLOWED=110203 -g -O2" "-g -O2";
                   });
+                useGtk3 = { pkg, src ? pkg.src }:
+                  overrideEmacs {
+                    inherit pkg src;
+                    options = { withGTK3 = true; };
+                  };
+                usePgtk = { pkg, src ? pkg.src }:
+                  overrideEmacs {
+                    inherit pkg src;
+                    options = { withPgtk = true; };
+                  };
+                useNox = { pkg, src ? pkg.src }:
+                  overrideEmacs {
+                    inherit pkg src;
+                    nox = true;
+                  };
               in rec {
                 emacs-vterm = prev.stdenv.mkDerivation rec {
                   pname = "emacs-vterm";
@@ -98,34 +113,26 @@
                   '';
                 };
 
-                emacsGit = overrideEmacs { pkg = prev.emacsGit; };
-                emacsPgtk = overrideEmacs { pkg = prev.emacsPgtk; };
-                emacsUnstable = overrideEmacs { pkg = prev.emacsUnstable; };
-                emacsUnstablePgtk =
-                  overrideEmacs { pkg = prev.emacsUnstablePgtk; };
-                emacsLsp = overrideEmacs { pkg = prev.emacsLsp; };
-                emacsGit-nox = overrideEmacs {
-                  pkg = prev.emacsGit-nox;
-                  nox = true;
-                };
-                emacsUnstable-nox = overrideEmacs {
-                  pkg = prev.emacsUnstable-nox;
-                  nox = true;
-                };
+                emacsGit = useGtk3 { pkg = prev.emacsGit; };
+                emacsPgtk = usePgtk { pkg = prev.emacsPgtk; };
+                emacsUnstable = useGtk3 { pkg = prev.emacsUnstable; };
+                emacsUnstablePgtk = usePgtk { pkg = prev.emacsUnstablePgtk; };
+                emacsLsp = useGtk3 { pkg = prev.emacsLsp; };
+                emacsGit-nox = useNox { pkg = prev.emacsGit-nox; };
+                emacsUnstable-nox = useNox { pkg = prev.emacsUnstable-nox; };
 
                 # The Stable packages are taken from the emacs-src input.
-                emacsStable = overrideEmacs {
+                emacsStable = useGtk3 {
                   pkg = prev.emacsGit;
                   src = emacs-src;
                 };
-                emacsStablePgtk = overrideEmacs {
+                emacsStablePgtk = usePgtk {
                   pkg = prev.emacsPgtk;
                   src = emacs-src;
                 };
-                emacsStable-nox = overrideEmacs {
+                emacsStable-nox = useNox {
                   pkg = prev.emacs-nox;
                   src = emacs-src;
-                  nox = true;
                 };
 
                 emacs = ifDarwinElse emacsStablePgtk emacsStable;
