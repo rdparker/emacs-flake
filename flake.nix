@@ -41,23 +41,9 @@
             emacs-overlay.overlays.emacs
             (final: prev:
               let
-                overrideEmacs =
-                  { pkg, options ? { }, src ? pkg.src, nox ? false }:
-                  (pkg.override (if nox then
-                    options
-                  else
-                    { withXwidgets = true; } // options)).overrideAttrs
-                  (o: rec {
-                    inherit src;
-
-                    buildInputs = if nox then
-                      o.buildInputs
-                    else
-                      (o.buildInputs ++ [
-                        (ifDarwinElse prev.darwin.apple_sdk.frameworks.WebKit
-                          prev.webkitgtk)
-                      ]);
-                  });
+                overrideEmacs = { pkg, options ? { }, src ? pkg.src }:
+                  (pkg.override options).overrideAttrs
+                  (o: rec { inherit src; });
                 useGtk3 = { pkg, src ? pkg.src }:
                   overrideEmacs {
                     inherit pkg src;
@@ -71,7 +57,13 @@
                 useNox = { pkg, src ? pkg.src }:
                   overrideEmacs {
                     inherit pkg src;
-                    nox = true;
+                    options = {
+                      withNS = false;
+                      withX = false;
+                      withGTK2 = false;
+                      withGTK3 = false;
+                      withWebP = false;
+                    };
                   };
               in rec {
                 emacsGit = useGtk3 { pkg = prev.emacsGit; };

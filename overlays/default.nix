@@ -1,9 +1,13 @@
 { emacs-patches-src, emacs-vterm-src }:
 self: super:
+with super;
 let
-  inherit (super.lib) platforms;
-  overlayDarwin = super.lib.optional super.stdenv.isDarwin
-    (import ./darwin.nix { inherit emacs-patches-src; });
-  overlays = overlayDarwin
-    ++ [ (import ./emacs-vterm.nix { inherit emacs-vterm-src; }) ];
+  inherit (lib) optional platforms;
+  inherit (lib.lists) any forEach;
+  inherit (stdenv) isDarwin;
+  darwinPatch =
+    optional isDarwin (import ./darwin.nix { inherit emacs-patches-src; });
+  webKitOverlay = [ (import ./webkit.nix { inherit isDarwin; }) ];
+  vtermOverlay = [ (import ./emacs-vterm.nix { inherit emacs-vterm-src; }) ];
+  overlays = darwinPatch ++ webKitOverlay ++ vtermOverlay;
 in super.lib.composeManyExtensions overlays self super
