@@ -62,11 +62,6 @@
                       "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
                     ];
 
-                    postInstall = o.postInstall + ''
-                      cp ${final.emacs-vterm}/vterm.el $out/share/emacs/site-lisp/vterm.el
-                      cp ${final.emacs-vterm}/vterm-module.so $out/share/emacs/site-lisp/vterm-module.so
-                    '';
-
                     CFLAGS = ifDarwinElse
                       "-DMAC_OS_X_VERSION_MAX_ALLOWED=110203 -g -O2" "-g -O2";
                   });
@@ -86,33 +81,6 @@
                     nox = true;
                   };
               in rec {
-                emacs-vterm = prev.stdenv.mkDerivation rec {
-                  pname = "emacs-vterm";
-                  version = "master";
-
-                  src = emacs-vterm-src;
-
-                  nativeBuildInputs = [ prev.cmake prev.libtool prev.glib.dev ];
-
-                  buildInputs =
-                    [ prev.glib.out prev.libvterm-neovim prev.ncurses ];
-
-                  cmakeFlags = [ "-DUSE_SYSTEM_LIBVTERM=yes" ];
-
-                  preConfigure = ''
-                    echo "include_directories(\"${prev.glib.out}/lib/glib-2.0/include\")" >> CMakeLists.txt
-                    echo "include_directories(\"${prev.glib.dev}/include/glib-2.0\")" >> CMakeLists.txt
-                    echo "include_directories(\"${prev.ncurses.dev}/include\")" >> CMakeLists.txt
-                    echo "include_directories(\"${prev.libvterm-neovim}/include\")" >> CMakeLists.txt
-                  '';
-
-                  installPhase = ''
-                    mkdir -p $out
-                    cp ../vterm-module.so $out
-                    cp ../vterm.el $out
-                  '';
-                };
-
                 emacsGit = useGtk3 { pkg = prev.emacsGit; };
                 emacsPgtk = usePgtk { pkg = prev.emacsPgtk; };
                 emacsUnstable = useGtk3 { pkg = prev.emacsUnstable; };
@@ -135,8 +103,12 @@
                   src = emacs-src;
                 };
 
-                emacs = ifDarwinElse emacsStablePgtk emacsStable;
+                emacs = emacsStable;
               })
+            # The 'emacs-vterm-src' overlay must be come after any
+            # overlays for ''emacs' because it adjusts changes the
+            # Emacs 'postInstall' step for Emacs.
+            (import ./overlays { inherit emacs-vterm-src; })
           ];
         };
 
