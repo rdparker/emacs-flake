@@ -57,13 +57,6 @@
                         (ifDarwinElse prev.darwin.apple_sdk.frameworks.WebKit
                           prev.webkitgtk)
                       ]);
-
-                    patches = o.patches ++ [
-                      "${emacs-patches-src}/patches/emacs-29/fix-window-role.patch"
-                    ];
-
-                    CFLAGS = ifDarwinElse
-                      "-DMAC_OS_X_VERSION_MAX_ALLOWED=110203 -g -O2" "-g -O2";
                   });
                 useGtk3 = { pkg, src ? pkg.src }:
                   overrideEmacs {
@@ -108,7 +101,7 @@
             # The 'emacs-vterm-src' overlay must be come after any
             # overlays for ''emacs' because it adjusts changes the
             # Emacs 'postInstall' step for Emacs.
-            (import ./overlays { inherit emacs-vterm-src; })
+            (import ./overlays { inherit emacs-patches-src emacs-vterm-src; })
           ];
         };
 
