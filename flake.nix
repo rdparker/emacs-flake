@@ -47,7 +47,10 @@
                 useGtk3 = { pkg, src ? pkg.src }:
                   overrideEmacs {
                     inherit pkg src;
-                    options = { withGTK3 = true; };
+                    options = {
+                      withGTK3 = true;
+                      withNS = false;
+                    };
                   };
                 usePgtk = { pkg, src ? pkg.src }:
                   overrideEmacs {
