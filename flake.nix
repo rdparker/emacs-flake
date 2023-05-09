@@ -26,86 +26,75 @@
 
   outputs = { self, nixpkgs, emacs-overlay, emacs-patches-src, emacs-src
     , emacs-vterm-src, flake-utils, ... }:
-    let
-      inherit (flake-utils.lib) eachDefaultSystem eachSystem;
-      inherit (nixpkgs.lib) mkIf platforms;
-      isDarwin = system: (builtins.elem system platforms.darwin);
-    in eachDefaultSystem (localSystem:
-      let
-        ifDarwinElse = darwin: other:
-          if (isDarwin localSystem) then darwin else other;
-      in rec {
-        pkgs = import nixpkgs {
-          inherit localSystem;
-          overlays = [
-            emacs-overlay.overlays.emacs
-            (final: prev:
-              let
-                overrideEmacs = { pkg, options ? { }, src ? pkg.src }:
-                  (pkg.override options).overrideAttrs
-                  (o: rec { inherit src; });
-                useGtk3 = { pkg, src ? pkg.src }:
-                  overrideEmacs {
-                    inherit pkg src;
-                    options = {
-                      withGTK3 = true;
-                      withNS = false;
-                    };
-                  };
-                usePgtk = { pkg, src ? pkg.src }:
-                  overrideEmacs {
-                    inherit pkg src;
-                    options = { withPgtk = true; };
-                  };
-                useNox = { pkg, src ? pkg.src }:
-                  overrideEmacs {
-                    inherit pkg src;
-                    options = {
-                      withNS = false;
-                      withX = false;
-                      withGTK2 = false;
-                      withGTK3 = false;
-                      withWebP = false;
-                    };
-                  };
-              in rec {
-                emacsGit = useGtk3 { pkg = prev.emacsGit; };
-                emacsPgtk = usePgtk { pkg = prev.emacsPgtk; };
-                emacsUnstable = useGtk3 { pkg = prev.emacsUnstable; };
-                emacsUnstablePgtk = usePgtk { pkg = prev.emacsUnstablePgtk; };
-                emacsLsp = useGtk3 { pkg = prev.emacsLsp; };
-                emacsGit-nox = useNox { pkg = prev.emacsGit-nox; };
-                emacsUnstable-nox = useNox { pkg = prev.emacsUnstable-nox; };
+    flake-utils.lib.eachDefaultSystem (localSystem: rec {
+      pkgs = import nixpkgs {
+        inherit localSystem;
+        overlays = [
+          emacs-overlay.overlays.emacs
+          (final: prev:
+            let
+              myOverlay = import ./overlays {
+                inherit emacs-patches-src emacs-vterm-src;
+              };
+              prevPkgs = pkg: myOverlay final (prev // { emacs = pkg; });
+              applyOverlay = pkg: args: (prevPkgs pkg).emacs.override args;
+              noDefaultUi = {
+                withNS = false; # Darwin always enables this
+                withGTK3 = false; # emacs-overlay usually enables this
+              };
+              mkUsingToolkit = pkg: toolkit:
+                applyOverlay pkg ({
+                  withX = true; # Avoid -nox
+                } // noDefaultUi // toolkit);
+              mkStable = pkg: pkg.overrideAttrs (oa: rec { src = emacs-src; });
+            in rec {
+              inherit (prevPkgs prev.emacs) emacs-vterm;
+              # nixpkgs.emacs without any overlays
+              inherit (nixpkgs.legacyPackages.${localSystem}) emacs;
 
-                # The Stable packages are taken from the emacs-src input.
-                emacsStable = useGtk3 {
-                  pkg = prev.emacsGit;
-                  src = emacs-src;
-                };
-                emacsStablePgtk = usePgtk {
-                  pkg = prev.emacsPgtk;
-                  src = emacs-src;
-                };
-                emacsStable-nox = useNox {
-                  pkg = prev.emacs-nox;
-                  src = emacs-src;
-                };
+              # Stable uses emacs-src, emacs-overlay and my overlays.
+              emacsStable = mkStable (applyOverlay prev.emacsUnstable { });
 
-                emacs = emacsStable;
-              })
-            # The 'emacs-vterm-src' overlay must be come after any
-            # overlays for ''emacs' because it adjusts changes the
-            # Emacs 'postInstall' step for Emacs.
-            (import ./overlays { inherit emacs-patches-src emacs-vterm-src; })
-          ];
-        };
+              # emacs-overlay GUI variants
+              emacs-gtk = mkUsingToolkit prev.emacs-gtk { withGTK3 = true; };
+              emacsStable-gtk = mkStable emacs-gtk;
+              emacsPgtk = applyOverlay prev.emacsPgtk {
+                withPgtk = true;
+                withX = false;
+                withNS = false;
+              };
+              emacsStablePgtk = mkStable emacsPgtk;
 
-        packages = rec {
-          inherit (pkgs)
-            emacs emacsGit emacsPgtk emacsStable emacsStablePgtk emacsUnstable
-            emacsUnstablePgtk emacsLsp emacsStable-nox emacsGit-nox
-            emacsUnstable-nox;
-          default = emacs;
-        };
-      });
+              # Add other toolkits as options since GTK crashes when
+              # Emacs is run in daemon mode and the X server restarts.
+              emacs-athena =
+                mkUsingToolkit prev.emacs-gtk { withAthena = true; };
+              emacsStable-athena = mkStable emacs-athena;
+              emacs-motif = mkUsingToolkit prev.emacs-gtk { withMotif = true; };
+              emacsStable-motif = mkStable emacs-motif;
+              emacs-lucid = mkUsingToolkit prev.emacs-gtk { };
+              emacsStable-lucid = mkStable emacs-lucid;
+
+              # Terminal-only variants
+              emacs-nox = applyOverlay prev.emacs-nox { };
+              emacsStable-nox = mkStable emacs-nox;
+
+              # Mac specific variants
+              emacs-macport = applyOverlay prev.emacs-gtk
+                (noDefaultUi // { withMacport = true; });
+              emacsStable-macport = mkStable emacs-macport;
+            })
+        ];
+      };
+
+      packages = rec {
+        inherit (pkgs)
+          emacs emacsGit emacsPgtk emacsStable emacsStablePgtk emacsUnstable
+          emacsUnstablePgtk emacsLsp emacs-nox emacsStable-nox emacsGit-nox
+          emacsUnstable-nox emacs-gtk emacsStable-gtk emacs-athena
+          emacsStable-athena emacs-motif emacsStable-motif emacs-lucid
+          emacsStable-lucid emacs-macport emacsStable-macport;
+        default = emacs;
+      };
+    });
 }
