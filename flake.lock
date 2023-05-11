@@ -72,6 +72,23 @@
         "type": "github"
       }
     },
+    "emacsql-sqlite-src": {
+      "flake": false,
+      "locked": {
+        "lastModified": 1665673935,
+        "narHash": "sha256-b/QEpWMTyVOdkOEhPNJ0x8ukUy9Gc9gYGjnlh0WU9fY=",
+        "owner": "magit",
+        "repo": "emacsql",
+        "rev": "c1a44076c0e44d5730b67b13c0e741f66f52fc85",
+        "type": "github"
+      },
+      "original": {
+        "owner": "magit",
+        "repo": "emacsql",
+        "rev": "c1a44076c0e44d5730b67b13c0e741f66f52fc85",
+        "type": "github"
+      }
+    },
     "flake-compat": {
       "flake": false,
       "locked": {
@@ -128,6 +145,7 @@
         "emacs-patches-src": "emacs-patches-src",
         "emacs-src": "emacs-src",
         "emacs-vterm-src": "emacs-vterm-src",
+        "emacsql-sqlite-src": "emacsql-sqlite-src",
         "flake-compat": "flake-compat",
         "flake-utils": "flake-utils",
         "nixpkgs": "nixpkgs"

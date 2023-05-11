@@ -19,13 +19,18 @@
     emacs-vterm-src.flake = false;
     emacs-vterm-src.url = "github:akermu/emacs-libvterm";
 
+    # Pinned to version 3.1.1
+    emacsql-sqlite-src.flake = false;
+    emacsql-sqlite-src.url =
+      "github:magit/emacsql?rev=c1a44076c0e44d5730b67b13c0e741f66f52fc85";
+
     # Only used by shell.nix
     flake-compat.flake = false;
     flake-compat.url = "github:edolstra/flake-compat";
   };
 
   outputs = { self, nixpkgs, emacs-overlay, emacs-patches-src, emacs-src
-    , emacs-vterm-src, flake-utils, ... }:
+    , emacs-vterm-src, emacsql-sqlite-src, flake-utils, ... }:
     flake-utils.lib.eachDefaultSystem (localSystem: rec {
       pkgs = import nixpkgs {
         inherit localSystem;
@@ -34,7 +39,7 @@
           (final: prev:
             let
               myOverlay = import ./overlays {
-                inherit emacs-patches-src emacs-vterm-src;
+                inherit emacs-patches-src emacs-vterm-src emacsql-sqlite-src;
               };
               prevPkgs = pkg: myOverlay final (prev // { emacs = pkg; });
               applyOverlay = pkg: args: (prevPkgs pkg).emacs.override args;
@@ -48,7 +53,7 @@
                 } // noDefaultUi // toolkit);
               mkStable = pkg: pkg.overrideAttrs (oa: rec { src = emacs-src; });
             in rec {
-              inherit (prevPkgs prev.emacs) emacs-vterm;
+              inherit (prevPkgs prev.emacs) emacs-vterm emacsql-sqlite;
               # nixpkgs.emacs without any overlays
               inherit (nixpkgs.legacyPackages.${localSystem}) emacs;
 
