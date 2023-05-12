@@ -10,7 +10,6 @@ in {
         "--with-ns"
         "--with-mac"
         "--with-x-toolkit=gtk3"
-        "--with-pgtk"
       ];
       webKit = if isDarwin then
         super.darwin.apple_sdk.frameworks.WebKit
