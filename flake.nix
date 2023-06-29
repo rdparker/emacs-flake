@@ -52,53 +52,88 @@
                   withX = true; # Avoid -nox
                 } // noDefaultUi // toolkit);
               mkStable = pkg: pkg.overrideAttrs (oa: rec { src = emacs-src; });
-            in rec {
-              inherit (prevPkgs prev.emacs) emacs-vterm emacsql-sqlite;
-              # nixpkgs.emacs without any overlays
-              inherit (nixpkgs.legacyPackages.${localSystem}) emacs;
 
               # Stable uses emacs-src, emacs-overlay and my overlays.
-              emacsStable = mkStable (applyOverlay prev.emacsUnstable { });
+              emacs-stable = mkStable (applyOverlay prev.emacs-unstable { });
 
               # emacs-overlay GUI variants
               emacs-gtk = mkUsingToolkit prev.emacs-gtk { withGTK3 = true; };
-              emacsStable-gtk = mkStable emacs-gtk;
-              emacsPgtk = applyOverlay prev.emacsPgtk {
+              emacs-stable-gtk = mkStable emacs-gtk;
+              emacs-pgtk = applyOverlay prev.emacs-pgtk {
                 withPgtk = true;
                 withX = false;
                 withNS = false;
               };
-              emacsStablePgtk = mkStable emacsPgtk;
+              emacs-stable-pgtk = mkStable emacs-pgtk;
 
               # Add other toolkits as options since GTK crashes when
               # Emacs is run in daemon mode and the X server restarts.
               emacs-athena =
                 mkUsingToolkit prev.emacs-gtk { withAthena = true; };
-              emacsStable-athena = mkStable emacs-athena;
+              emacs-stable-athena = mkStable emacs-athena;
               emacs-motif = mkUsingToolkit prev.emacs-gtk { withMotif = true; };
-              emacsStable-motif = mkStable emacs-motif;
+              emacs-stable-motif = mkStable emacs-motif;
               emacs-lucid = mkUsingToolkit prev.emacs-gtk { };
-              emacsStable-lucid = mkStable emacs-lucid;
+              emacs-stable-lucid = mkStable emacs-lucid;
 
               # Terminal-only variants
               emacs-nox = applyOverlay prev.emacs-nox { };
-              emacsStable-nox = mkStable emacs-nox;
+              emacs-stable-nox = mkStable emacs-nox;
 
               # Mac specific variants
               emacs-macport = applyOverlay prev.emacs-gtk
                 (noDefaultUi // { withMacport = true; });
-              emacsStable-macport = mkStable emacs-macport;
+              emacs-stable-macport = mkStable emacs-macport;
+            in rec {
+              inherit (prevPkgs prev.emacs) emacs-vterm emacsql-sqlite;
+
+              # nixpkgs.emacs without any overlays
+              inherit (nixpkgs.legacyPackages.${localSystem}) emacs;
+
+              # Stable uses emacs-src, emacs-overlay and my overlays.
+              inherit emacs-stable emacs-gtk emacs-stable-gtk emacs-pgtk
+                emacs-stable-pgtk emacs-athena emacs-stable-athena emacs-motif
+                emacs-stable-motif emacs-lucid emacs-stable-lucid emacs-nox
+                emacs-stable-nox emacs-macport emacs-stable-macport;
+            } // prev.lib.optionalAttrs (prev.config.allowAliases or true) {
+              emacsStable = builtins.trace
+                "emacsStable has been renamed to emacs-stable, please update your expression."
+                emacs-stable;
+              emacsStable-gtk = builtins.trace
+                "emacsStable-gtk has been renamed to emacs-stable-gtk, please update your expression."
+                emacs-stable-gtk;
+              emacsPgtk = builtins.trace
+                "emacsPgtk has been renamed to emacs-pgtk, please update your expression."
+                emacs-pgtk;
+              emacsStablePgtk = builtins.trace
+                "emacsStablePgtk has been renamed to emacs-stable-pgtk, please update your expression."
+                emacs-stable-pgtk;
+              emacsStable-athena = builtins.trace
+                "emacsStable-athena has been renamed to emacs-stable-athena, please update your expression."
+                emacs-stable-athena;
+              emacsStable-motif = builtins.trace
+                "emacsStable-motif has been renamed to emacs-stable-motif, please update your expression."
+                emacs-stable-motif;
+              emacsStable-lucid = builtins.trace
+                "emacsStable-lucid has been renamed to emacs-stable-lucid, please update your expression."
+                emacs-stable-lucid;
+              emacsStable-nox = builtins.trace
+                "emacsStable-nox has been renamed to emacs-stable-nox, please update your expression."
+                emacs-stable-nox;
+              emacsStable-macport = builtins.trace
+                "emacsStable-macport has been renamed to emacs-stable-macport, please update your expression."
+                emacs-stable-macport;
             })
         ];
       };
 
       packages = rec {
         inherit (pkgs)
-          emacs emacsGit emacsPgtk emacsStable emacsStablePgtk emacsUnstable
-          emacsUnstablePgtk emacsLsp emacs-nox emacsStable-nox emacsGit-nox
-          emacsUnstable-nox emacs-gtk emacsStable-gtk emacs-athena
-          emacsStable-athena emacs-motif emacsStable-motif emacs-lucid
-          emacsStable-lucid emacs-macport emacsStable-macport;
+          emacs emacs-git emacs-pgtk emacs-stable emacs-stable-pgtk
+          emacs-unstable emacs-unstable-pgtk emacsLsp emacs-nox emacs-stable-nox
+          emacs-git-nox emacs-unstable-nox emacs-gtk emacs-stable-gtk
+          emacs-athena emacs-stable-athena emacs-motif emacs-stable-motif
+          emacs-lucid emacs-stable-lucid emacs-macport emacs-stable-macport;
         default = emacs;
       };
     });
